@@ -1,0 +1,53 @@
+name: Run Restaurant Script & Publish Report
+
+on:
+  workflow_dispatch:
+    inputs:
+      env:
+        description: "Environment (e.g. STG, PROD, DEV)"
+        required: true
+        default: "STG"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: local
+
+    steps:
+      - name: Pull Repo Code
+        uses: actions/checkout@v4
+
+      - name: Install node modules
+        run: npm install
+
+      - name: Run restaurant script
+        env:
+          HOST_STG: ${{ secrets.HOST_STG }}
+          TOKEN_STG: ${{ secrets.TOKEN_STG }}
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: npm run restaurant
+
+      - name: Rename main HTML report to index.html
+        run: mv mochawesome-report/mochawesome.html mochawesome-report/index.html
+
+      - name: Upload artifact for GitHub Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: mochawesome-report
+
+  deploy:
+    needs: build
+    if: always()
+    runs-on: local
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
